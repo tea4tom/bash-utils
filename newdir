@@ -1,0 +1,205 @@
+#!/usr/bin/env bash
+
+# NEWDIR Command Script
+# #####################
+#
+# Simply creates a directory and enters it. Sub directories are supported and 
+# the script will automatically enter the last sub directory by default.
+#
+##
+
+HELP=no
+INSTALLHELP=no
+CTROOT=no
+NESTED=no
+POSITIONAL_ARGS=()
+# EXTENSION=""
+
+# displays instructions for installing the script as a command.
+display_install() {
+	cat << EOF
+newdir / nd
+Installation guide:
+
+These scripts are not part of any maintained package, so you are the maintainer
+locally.
+
+You can install this (or any bash script) on your system like this:
+
+LOCAL VERSION: (For your user only)
+
+ - Check the current PATH variable for your system by typing
+   'echo "\$PATH"'
+
+ - Look for a local bin folder, starting "/home/.../.local/..."
+
+ - If you do not have a local bin folder, you can easily create one:
+   o Start in your home folder: 'cd ~'
+   o Type 'ls -lsa' and look for a ".local" folder.
+   o If you don't have one, create it with 'mkdir .local'
+   o Type: 'ls -lsa .local/'
+   o Look for a folder called "bin"; create it if you don't have one
+     by typing: 'mkdir .local/bin'
+   o Now we just need to add this to your user PATH environment 
+     variable. We can do this by editting your local ".bashrc"
+	 file and adding the folling line:
+	 "export PATH="\$PATH:/home/{username}/.local/bin"
+
+    (restart terminal or logout/in to update the PATH)
+
+ - If (when) you have a local bin folder, copy this script to that folder
+   'cp ./newdir /home/{username}/.local/bin/'
+
+ - Create a system wide alias in ~/.bashrc
+   add "alias nd='newdir'" to the end of the file (or near other aliasses)
+
+SYSTEM VERSION: (requires sudo)
+
+ - Check the current PATH variable for your system by typing
+   'echo "\$PATH"'
+
+ - Look for your default bin folder, usually "/usr/bin"
+
+ - Copy this script to that folder (sudo)
+   'sudo cp ./newdir /usr/bin/'
+
+ - Create a system wide alias in /etc/bash.bashrc
+   add "alias nd='newdir'"
+EOF
+	exit 0
+}
+
+# displays help and useage information and exits
+display_help() {
+	cat << EOF
+newdir / nd
+Creates a directory or multiple directories and enters the last created.
+
+This script creates it's own bash session to preserve the new PWD. You can 
+type 'exit' to return to your previous session/location.
+
+Can be used to create a single root directory containing any others listed in
+the arguments, or it can nest all sub directories within each other.
+
+usage: nd [--help|-h][--root|-r][--nested|-n] "new root dir" "subdir1" "subdir2"
+
+  -i | --install-inst Display instructions for installing the command to your system.
+  -h | --help         Displays this screen.
+  -n | --nested       The default mode of this script will create all sub directories
+                      in the newly created root directory. The nested switch will alter
+                      this process so that all sub directories are created inside the 
+                      previous one to create a nested set.
+  -r | --root         This script will automatically change directory to the last  
+                      directory / sub directory. The root switch will make the script 
+                      finish inside the first root folder.
+  
+Report bugs to: unset 
+newdir home page: unset
+EOF
+	exit 0
+}
+
+# processes arguments passed to the script in the command line
+process_args() {
+	local i
+	
+	for i in "$@"; do
+	  case $i in
+	    # -e=*|--exit=*)
+	    #   EXTENSION="${i#*=}"
+	    #   shift # past argument=value
+	    #   ;;
+	    -r|--root)
+	      CTROOT=YES
+	      shift
+	      ;;
+	    -n|--nested)
+	      NESTED=YES
+	      shift
+	      ;;
+	    -h|--help)
+	      HELP=YES
+	      shift # past argument with no value
+	      ;;
+		-i|--install-inst)
+	      INSTALLHELP=YES
+	      shift # past argument with no value
+	      ;;
+	    -*|--*)
+	      echo "Unknown option $i"
+	      exit 1
+	      ;;
+	    *)
+	      POSITIONAL_ARGS+=("$1") # save positional arg
+	      shift # past argument
+	      ;;
+	  esac
+	done
+	
+	set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
+}
+
+main () {
+	local i
+	
+	process_args "$@"
+	
+	# args help switch activated
+	if [[ "$INSTALLHELP" == YES ]]; then
+		display_install
+	fi
+
+	# args help switch activated
+	if [[ "$HELP" == YES ]]; then
+		display_help
+	fi
+
+	# no positional args provided
+	if [ ${#POSITIONAL_ARGS[@]} -eq 0 ]; then
+		display_help
+	fi
+
+	local rootdir rootlevel cpath lastdir
+
+	for i in "${POSITIONAL_ARGS[@]}"; do
+		if [ "$rootdir" == "" ]; then
+			rootdir="$i"
+			mkdir "$rootdir"
+			cd "$rootdir"
+			cpath="$rootdir"
+		else
+			mkdir "$i"
+			lastdir="$i"
+			if [[ "$NESTED" == YES ]]; then
+				cd "$i"
+				cpath="$cpath/$i"
+				rootlevel="../$rootlevel"
+			fi
+		fi
+	done
+
+	# Finish in the correct directory
+	if [[ "$NESTED" == YES ]]; then
+		if [[ "$CTROOT" == YES ]]; then
+			cd "$rootlevel"
+		fi
+	else
+		if [[ "$CTROOT" != YES ]]; then
+			rootlevel="../"
+			cd "$lastdir"
+		fi
+	fi
+
+	# DEBUGGING STUFF
+	# echo "Created a new root: $rootdir"
+	# echo "Last sub dir was: $lastdir"
+	# echo "Root level is: $rootlevel"
+	# echo "Cur path var contains: $cpath"
+
+	# exit into a new bash session to retain the PWD
+	exec bash
+	echo "New BASH session entered. Type \"exit\" to return to previous session/location."
+}
+
+# start main function
+main "$@"
