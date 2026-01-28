@@ -185,8 +185,10 @@ main () {
 		fi
 	else
 		if [[ "$CTROOT" != YES ]]; then
-			rootlevel="../"
-			cd "$lastdir"
+			if [[ "$lastdir" != "" ]]; then
+				rootlevel="../"
+				cd "$lastdir"
+			fi
 		fi
 	fi
 
